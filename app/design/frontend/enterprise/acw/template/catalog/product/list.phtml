@@ -1,0 +1,171 @@
+<?php
+/**
+ * Magento Enterprise Edition
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Magento Enterprise Edition License
+ * that is bundled with this package in the file LICENSE_EE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.magentocommerce.com/license/enterprise-edition
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    design
+ * @package     enterprise_default
+ * @copyright   Copyright (c) 2013 Magento Inc. (http://www.magentocommerce.com)
+ * @license     http://www.magentocommerce.com/license/enterprise-edition
+ */
+?>
+<?php
+/**
+ * Product list template
+ *
+ * @see Mage_Catalog_Block_Product_List
+ */
+?>
+<?php Varien_Profiler::start("productlist") ?>
+<?php
+$_productCollection = $this->getLoadedProductCollection();
+$_helper = $this->helper('catalog/output');
+?>
+<?php if (!$_productCollection->count()): ?>
+    <p class="note-msg"><?php echo $this->__('There are no products matching the selection.') ?></p>
+<?php else: ?>
+    <?php echo $this->getToolbarHtml() ?>
+    <?php echo $this->getAdditionalHtml() ?>
+    <div class="category-products">
+        <?php // Grid Mode ?>
+        <?php $_collectionSize = $_productCollection->count() ?>
+        <?php $_columnCount = $this->getColumnCount(); ?>
+        <ul class="products-grid">
+            <?php $i = 0;
+            foreach ($_productCollection as $_product): ?>
+                <?php Varien_Profiler::start("product_inside") ?>
+                <?php // $_product->load($_product->getId()); ?>
+                <?php #$product_url = Mage::helper("forixcatalog")->generateProductUrl($_product->getSku(),$_product->getName(),$_product->getProductUrl());?>
+                <?php
+                $url_key = preg_replace("/[^A-Za-z0-9 -]/", '', str_replace(" ", "-", str_replace("  ", " ", $_product->getName())));
+                $request_path = "product" . DS . $_product->getSku() . DS . $url_key . ".html";
+                $product_url = $this->getBaseUrl() . "product" . DS . $_product->getSku() . DS . $url_key . ".html";
+                $rewrite = Mage::getModel('enterprise_urlrewrite/url_rewrite')->loadByRequestPath(array('request' => $request_path));
+                //var_dump($rewrite->getTargetPath());
+                //var_dump($request_path);
+                if (!$rewrite->getTargetPath()) {
+                    $product_url = $_product->getProductUrl();
+                }
+                $old_pattern = "product/" . $_product->getSku();
+                if (strpos($product_url, $old_pattern) > 0) {
+                    $product_url = $this->getBaseUrl() . "product" . DS . $_product->getSku() . DS . $url_key . ".html";
+                }
+                ?>
+                <?php Varien_Profiler::stop("product_inside") ?>
+                <li class="item item4-1 <?php if ($i % 4 == 0) {
+                    echo 'four-lass';
+                } ?>">
+                    <div class="box-product">
+                        <?php echo Mage::helper("amlabel")->showLabel($_product); ?>
+                        <a href="<?php echo $product_url ?>"
+                           title="<?php echo $this->stripTags($this->getImageLabel($_product, 'small_image'), null, true) ?>"
+                           class="product-image"><img width="178px" height="122px"
+                                                      src="<?php echo $this->helper('catalog/image')->init($_product, 'small_image')->resize(178, 122); ?>"
+                                                      alt="<?php echo $this->stripTags($this->getImageLabel($_product, 'small_image'), null, true) ?>"/></a>
+                        <?php $colors = Mage::helper('forixcatalog')->getAllColors($_product); ?>
+                        <?php if (count($colors) > 0): ?>
+                            <div class="box-colors">
+                                <ul>
+                                    <?php foreach ($colors as $color): ?>
+                                        <li class="color<?php echo $color['alt']; ?>"
+                                            style="background: <?php echo $color['alt']; ?>"><?php echo $color['alt']; ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php endif; ?>
+                        <div class="box-name">
+                            <h2 class="product-name "><a href="<?php echo $product_url ?>"
+                                                         title="<?php echo $this->stripTags($_product->getName(), null, true) ?>">
+
+                                    <?php echo $_helper->productAttribute($_product, $_product->getName(), 'name'); ?>
+
+
+                                </a></h2>
+
+                        </div>
+                        <?php echo $this->getPriceHtml($_product, true) ?>
+                        <?php if ($_product->getMsrp() > 0): ?>
+                            <div class="msrp-price">
+                                MSRP:&nbsp;<?php echo Mage::helper('core')->currency($_product->getMsrp(), true, false); ?> </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="box-details" onclick="setLocation('<?php echo $product_url ?>')"
+                         data-url="<?php echo $product_url ?>">
+                        <p class="short-description">
+                            <?php
+                            if ($_product->getShortDescription()) {
+                                echo Mage::helper('forixcatalog')->truncate($this->stripTags($_product->getShortDescription(), null, true), 80);
+                            } else {
+                                echo Mage::helper('forixcatalog')->truncate($this->stripTags($_product->getDescription(), null, true), 80);
+                            }
+                            ?>
+                        </p>
+
+                        <div class="actions">
+                            <?php if ($_product->isSaleable()): ?>
+                                <?php if (Mage::helper("custom/allowedshipping")->isAllowedHomeDelivery($_product)): ?>
+                                    <button id="product-<?php echo $_product->getId(); ?>" type="button"
+                                            title="<?php echo $this->__('Add to Cart') ?>" class="button btn-cart"
+                                            onmouseover="jQuery(this).parent().parent().attr('onclick','');"
+                                            onmouseout="jQuery(this).parent().parent().attr('onclick','setLocation(\''+jQuery(this).parent().parent().attr('data-url')+'\')');"
+                                            onclick="processAllowedShippingNotifyOnCatalog('<?php echo $this->getAddToCartUrl($_product, array("_secure" => Mage::app()->getStore()->isCurrentlySecure())) ?>','<?php echo $_product->getId() ?>');">
+                                        <span><span><?php echo $this->__('Add to Cart') ?></span></span></button>
+                                <?php else: ?>
+                                    <button id="product-<?php echo $_product->getId(); ?>" type="button"
+                                            title="<?php echo $this->__('Add to Cart') ?>" class="button btn-cart"
+                                            onmouseover="jQuery(this).parent().parent().attr('onclick','');"
+                                            onmouseout="jQuery(this).parent().parent().attr('onclick','setLocation(\''+jQuery(this).parent().parent().attr('data-url')+'\')');"
+                                            onclick="MW.CartAjax.addToCart('<?php echo $this->getAddToCartUrl($_product, array("_secure" => Mage::app()->getStore()->isCurrentlySecure())) ?>',<?php echo $_product->getId() ?>)">
+                                        <span><span><?php echo $this->__('Add to Cart') ?></span></span></button>
+                                <?php endif; ?>
+
+                            <?php else: ?>
+                                <?php if ($_product->getIsSalable()): ?>
+                                    <p class="availability in-stock"><span><?php echo $this->__('In stock') ?></span>
+                                    </p>
+                                <?php else: ?>
+                                    <p class="availability out-of-stock">
+                                        <span><?php echo $this->__('Out of stock') ?></span></p>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            <ul class="add-to-links">
+                                <?php if ($this->helper('wishlist')->isAllow()) : ?>
+                                    <li><a title="<?php echo $this->__('Add to Wishlist') ?>"
+                                           href="<?php echo $this->helper('wishlist')->getAddUrl($_product) ?>"
+                                           class="link-wishlist"><?php echo $this->__('Add to Wishlist') ?></a></li>
+                                <?php endif; ?>
+                                <?php if ($_compareUrl = $this->getAddToCompareUrl($_product)): ?>
+                                    <li><a title="<?php echo $this->__('Add to Compare') ?>"
+                                           href="<?php echo $_compareUrl ?>"
+                                           class="link-compare"><?php echo $this->__('Add to Compare') ?></a></li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+                <?php $i++; endforeach ?>
+        </ul>
+        <script
+            type="text/javascript">decorateGeneric($$('ul.products-grid li'), ['odd', 'even', 'first', 'last'])</script>
+
+    </div>
+    <div class="toolbar-bottom">
+        <?php echo $this->getToolbarHtml() ?>
+    </div>
+<?php endif; ?>
+<?php Varien_Profiler::stop("productlist") ?>
